@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Chat</title>
+
+  <style>
+    :root{
+      --text:#ffffff;
+      --muted:#c8c8c8;
+      --radius:5px;
+    }
+
+    *,*::before,*::after{box-sizing:border-box}
+
+    html,body{
+      margin:0;padding:0;
+      background:#000 !important;
+      color:var(--text);
+      font-family:Inter,system-ui;
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+    .page{
+      padding:30px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .wrap{
+      width:100%;
+      max-width:1400px;
+      display:grid;
+      grid-template-columns:1.05fr 0.95fr;
+      gap:28px;
+    }
+
+    @media (max-width:980px){
+      .wrap{grid-template-columns:1fr}
+    }
+
+    .panel{
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.13);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 22px 40px rgba(0,0,0,0.45);
+      overflow:hidden;
+    }
+
+    .chat-inner,.out-inner{
+      height:560px;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .chat-title{
+      font-weight:800;
+      text-align:center;
+      font-size:20px;
+      margin:10px 0;
+    }
+
+    .thread{
+      flex:1;
+      overflow:auto;
+      scrollbar-width:none;
+    }
+
+    .thread::-webkit-scrollbar{display:none}
+
+    .msg{
+      display:flex;
+      gap:12px;
+      margin:12px 0 0 30px;
+    }
+
+    .avatar{
+      width:32px;
+      height:32px;
+      border-radius:50%;
+      font-size:11px;
+      font-weight:600;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.25);
+    }
+
+    .bubble{
+      background:rgba(255,255,255,0.15);
+      border:1px solid rgba(255,255,255,0.22);
+      border-radius:20px 5px;
+      padding:12px 14px;
+      line-height:1.5;
+    }
+
+    .input-bar{
+      display:flex;
+      gap:10px;
+      background:rgba(255,255,255,0.12);
+      border:1px solid rgba(255,255,255,0.25);
+      border-radius:5px;
+      margin:10px;
+      padding:10px;
+    }
+
+    .input-bar input{
+      flex:1;
+      background:transparent;
+      border:none;
+      color:#fff;
+      outline:none;
+    }
+
+    .send{
+      width:34px;height:34px;
+      background:#22e6c8;
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:700;
+    }
+
+    .chart-card{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      position:relative;
+    }
+
+    canvas{
+      width:min(520px,92%);
+      max-height:360px;
+      display:none;
+    }
+
+    .loader{
+      width:60px;height:60px;
+      border:5px solid rgba(255,255,255,0.15);
+      border-top-color:#49ffd7;
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
+
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* FINDINGS */
+    .finding_output{
+      opacity:0;
+      transform:translateY(20px);
+      max-height:0;
+      overflow:hidden;
+      transition:opacity .4s, transform .4s, max-height .5s;
+      grid-column:1/-1;
+      width:100%;
+    }
+
+    .finding_output.show{
+      opacity:1;
+      transform:translateY(0);
+      max-height:2000px;
+    }
+
+    .findings-section{
+      background:#0f1217;
+      border-radius:5px;
+      padding:24px;
+      border:1px solid #575757;
+    }
+
+    .finding-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:32px;
+      padding:18px 0;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+
+    @media(max-width:768px){
+      .finding-row{grid-template-columns:1fr}
+    }
+
+    .finding{
+      display:flex;
+      gap:14px;
+    }
+
+    .grade{
+      width:44px;
+      height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      border-radius:10px;
+      color:#fff;
+    }
+
+    .grade-a{background:#10b981}
+    .grade-b{background:#6b7280}
+    .grade-c{background:#f59e0b}
+    .grade-d{background:#7f1d1d}
+
+    .finding-title{font-weight:600}
+    .finding-desc{font-size:13px;color:#9ca3af;margin-top:4px}
+
+    #scanInfo{text-align:center;margin-top:16px;font-size:12px;color:#9ca3af}
+  </style>
+</head>
+
+<body>
+
+<div class="page">
+<div class="wrap">
+
+<section class="panel chat">
+  <div class="chat-inner">
+    <h2 class="chat-title">HOW CAN I HELP</h2>
+    <div class="thread" id="thread"></div>
+    <div class="input-bar">
+      <input id="chatInput" placeholder="chat with me...">
+      <button class="send" id="sendBtn">&gt;</button>
+    </div>
+  </div>
+</section>
+
+<section class="panel output">
+  <div class="out-inner">
+    <div class="chart-card">
+      <div id="loader" class="loader"></div>
+      <canvas id="radar" width="560" height="360"></canvas>
+    </div>
+  </div>
+</section>
+
+<section id="findings_out" class="finding_output">
+  <div class="findings-section">
+    <div id="findingsRows"></div>
+    <div id="scanInfo"></div>
+  </div>
+</section>
+
+</div>
+</div>
+
+<script>
+/* CHAT */
+const thread = document.getElementById("thread");
+const input = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
+
+function addMsg(text, from="user"){
+  const row=document.createElement("div");
+  row.className="msg";
+
+  const avatar=document.createElement("div");
+  avatar.className="avatar";
+  avatar.textContent=from==="user"?"YOU":"IS";
+
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
+  bubble.textContent=text;
+
+  if(from==="user"){
+    row.style.justifyContent="flex-end";
+    row.append(bubble,avatar);
+  }else{
+    row.append(avatar,bubble);
+  }
+
+  thread.appendChild(row);
+  thread.scrollTop=thread.scrollHeight;
+}
+
+sendBtn.onclick=()=>{
+  if(!input.value.trim())return;
+  addMsg(input.value,"user");
+  input.value="";
+};
+
+
+/* RADAR SYSTEM */
+const loader = document.getElementById("loader");
+const canvas = document.getElementById("radar");
+const ctx = canvas.getContext("2d");
+
+const labels = [
+  "Social Engineering",
+  "Network Security",
+  "Application Security",
+  "DNS Health",
+  "IP Reputation",
+  "Internal Vulnerabilities"
+];
+
+let scores = [70, 78, 72, 64, 68, 75];
+
+const cfg = {
+  cx: canvas.width/2,
+  cy: canvas.height/2 + 8,
+  radius:130,
+  rings:5,
+  grid:"rgba(255,255,255,0.12)",
+  axis:"rgba(255,255,255,0.18)",
+  fill:"rgba(34,230,200,0.18)",
+  stroke:"#22e6c8",
+  point:"#49ffd7",
+  label:"#9fb0cc",
+  font:"12px system-ui"
+};
+
+function polar(angle, r){
+  return [cfg.cx + r*Math.cos(angle), cfg.cy + r*Math.sin(angle)];
+}
+
+function drawRadar(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const n = labels.length;
+  const step = (Math.PI*2)/n;
+  const startAngle = -Math.PI/2;
+
+  ctx.save();
+  ctx.translate(0.5,0.5);
+
+  for(let k=1;k<=cfg.rings;k++){
+    const r = cfg.radius*(k/cfg.rings);
+    ctx.beginPath();
+    for(let i=0;i<n;i++){
+      const ang = startAngle + i*step;
+      const [x,y] = polar(ang,r);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = cfg.grid;
+    ctx.stroke();
+  }
+
+  ctx.font = cfg.font;
+
+  labels.forEach((label,i)=>{
+    const ang = startAngle + i*step;
+    const [ax, ay] = polar(ang,cfg.radius);
+
+    ctx.beginPath();
+    ctx.moveTo(cfg.cx,cfg.cy);
+    ctx.lineTo(ax,ay);
+    ctx.strokeStyle = cfg.axis;
+    ctx.stroke();
+
+    const [lx, ly] = polar(ang,cfg.radius+18);
+    ctx.fillStyle = cfg.label;
+
+    ctx.textAlign =
+      Math.cos(ang)>0.15?"left":
+      Math.cos(ang)<-0.15?"right":"center";
+
+    ctx.textBaseline =
+      Math.sin(ang)>0.15?"top":
+      Math.sin(ang)<-0.15?"bottom":"middle";
+
+    ctx.fillText(label,lx,ly);
+  });
+
+  ctx.beginPath();
+  labels.forEach((_,i)=>{
+    const ang = startAngle + i*step;
+    const r = cfg.radius*(scores[i]/100);
+    const [x,y] = polar(ang,r);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = cfg.fill;
+  ctx.strokeStyle = cfg.stroke;
+  ctx.fill();
+  ctx.stroke();
+
+  labels.forEach((_,i)=>{
+    const ang = startAngle + i*step;
+    const r = cfg.radius*(scores[i]/100);
+    const [x,y] = polar(ang,r);
+
+    ctx.beginPath();
+    ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle = cfg.point;
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+/* UPDATE RADAR EVERY 1 SECOND */
+function randomizeScores(){
+  scores = scores.map(v =>
+    Math.min(100, Math.max(0, v + (Math.random()*10 - 5)))
+  );
+  drawRadar();
+}
+
+/* INIT */
+setTimeout(()=>{
+  loader.style.display="none";
+  canvas.style.display="block";
+  drawRadar();
+
+  setInterval(randomizeScores, 1000); // ✅ every 1 sec
+
+  document.getElementById("findings_out").classList.add("show");
+},2000);
+
+
+/* FINDINGS DATA */
+const result={
+  socialEngineering:"B",
+  networkSecurity:"A",
+  applicationSecurity:"A",
+  dnsHealth:"D",
+  ipReputation:"A",
+  externalVulnerabilities:"A"
+};
+
+const desc={
+  socialEngineering:"Emails of employees exposed on the internet.",
+  networkSecurity:"Insecure network configurations.",
+  applicationSecurity:"Application vulnerabilities detected.",
+  dnsHealth:"DNS misconfiguration issues.",
+  ipReputation:"Suspicious IP activities detected.",
+  externalVulnerabilities:"External asset exposure risks."
+};
+
+const order=Object.keys(result);
+const rows=document.getElementById("findingsRows");
+
+for(let i=0;i<order.length;i+=2){
+  const row=document.createElement("div");
+  row.className="finding-row";
+
+  [order[i],order[i+1]].forEach(k=>{
+    if(!k)return;
+    row.innerHTML+=`
+      <div class="finding">
+        <div class="grade grade-${result[k].toLowerCase()}">${result[k]}</div>
+        <div>
+          <div class="finding-title">${k}</div>
+          <div class="finding-desc">${desc[k]}</div>
+        </div>
+      </div>`;
+  });
+
+  rows.appendChild(row);
+}
+
+document.getElementById("scanInfo").textContent =
+  "Last scanned on 14th August 2025 04:10:55 PM";
+</script>
+
+</body>
+</html>

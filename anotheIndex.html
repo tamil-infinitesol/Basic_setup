@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>KK — Chat + Output Radar</title>
+
+  <style>
+
+    :root{
+      --text:#ffffff;
+      --muted:#c8c8c8;
+      --radius:5px;
+    }
+
+    *,*::before,*::after{box-sizing:border-box}
+
+    html,body{
+      margin:0;padding:0;
+      background:#000 !important;
+      color:var(--text);
+      font-family:Inter,system-ui;
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+
+
+
+    .input-container {
+  position: relative;
+}
+
+input {
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  border: none;
+}
+
+.arrow-btn {
+  color: #000;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  cursor: pointer;
+  display: none; /* Hidden on mobile */
+}
+
+/* Hide button on desktop, show arrow */
+@media (min-width: 768px) {
+  #mobileButton {
+    display: none;
+  }
+  .arrow-btn {
+    display: block;
+  }
+}
+
+/* Show button on mobile, hide arrow */
+@media (max-width: 767px) {
+  #mobileButton {
+    display: block;
+  }
+  .arrow-btn {
+    display: none;
+  }
+}
+
+
+
+    /* ----------------------------
+       EMAIL SCREEN + ANIMATIONS
+    ----------------------------- */
+    #emailScreen{
+      display: none;
+      width:100%;
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background:transparent;
+      position:fixed;
+      top:0; left:0;
+      z-index:9999;
+      flex-direction:column;
+      color:white;
+      opacity:1;
+      transform:scale(1);
+      transition:opacity .6s ease, transform .6s ease;
+    }
+
+    #emailScreen.fadeOut{
+      opacity:0;
+      transform:scale(.92);
+      pointer-events:none;
+    }
+
+    #emailScreen input{
+      padding:12px 16px;
+      width:280px;
+      border-radius:2px;
+      border:none;
+      outline:none;
+      font-size:16px;
+      margin-top:10px;
+    }
+
+    #emailScreen button{
+      margin-top:18px;
+      padding:12px 20px;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      background:#22e6c8;
+      color:#000;
+      font-weight:700;
+      font-size:16px;
+      transition:0.3s;
+    }
+
+    #emailScreen button:hover{
+      transform:scale(1.05);
+      background:#2ffff0;
+    }
+
+    /* ----------------------------
+       DASHBOARD ANIMATIONS
+    ----------------------------- */
+    #dashboard{
+      opacity:0;
+      transform:translateY(20px);
+      transition:opacity .8s ease, transform .8s ease;
+    }
+
+    #dashboard.show{
+      opacity:1;
+      transform:translateY(0px);
+    }
+
+
+    /* ORIGINAL UI BELOW */
+    .page{
+      padding:30px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .wrap{
+      width:100%;
+      max-width:1400px;
+      display:grid;
+      grid-template-columns:1.05fr 0.95fr;
+      gap:28px;
+    }
+
+    @media (max-width:980px){
+      .wrap{grid-template-columns:1fr}
+    }
+
+    .panel{
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.13);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 22px 40px rgba(0,0,0,0.45);
+      overflow:hidden;
+    }
+
+    .chat-inner,.out-inner{
+      padding:auto;
+      height:560px;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .chat-title{
+      font-weight:800;
+      text-align:center;
+      font-size:20px;
+      margin:5px 0 15px 0;
+    }
+
+    .thread{
+      display: flex;
+      flex-direction: column;
+      width: 90%;
+      flex:1;
+      overflow:auto;
+      scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;
+    }
+
+    .thread::-webkit-scrollbar{
+  display: none;                /* Chrome, Safari */
+}
+
+    .msg{
+      display:flex;
+      gap:12px;
+      margin:12px 0 0 30px;
+      max-width:95%;
+    }
+
+.avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  font-size:11px;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.25);
+  flex-shrink:0;
+}
+ 
+ 
+    .bubble{
+      background:rgba(255,255,255,0.15);
+      border:1px solid rgba(255,255,255,0.22);
+      border-radius:20px 5px;
+      padding:12px 14px;
+      backdrop-filter:blur(14px);
+      line-height:1.55;
+    }
+
+    .input-bar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      background:rgba(255,255,255,0.12);
+      border:1px solid rgba(255,255,255,0.25);
+      border-radius:5px;
+      margin:10px;
+      padding:10px;
+    }
+
+    .input-bar input{
+      flex:1;background:transparent;border:none;color:var(--text);
+      font-size:15px;outline:none;
+    }
+
+    .send{
+      width:34px;height:34px;border-radius:10px;
+      display:grid;place-items:center;
+      background:#22e6c8;
+      color:white;font-weight:900;cursor:pointer;
+      box-shadow:0 0 12px rgba(50,120,255,0.7);
+      transition:0.3s;
+    }
+
+    .send:hover{
+      transform:scale(1.08);
+    }
+
+    .chart-card{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      position:relative;
+      box-shadow:0 20px 34px rgba(0,0,0,0.45);
+    }
+
+    canvas{
+      width:min(520px,92%);
+      max-height:360px;
+      display:none;
+    }
+
+    .loader{
+      width:60px;height:60px;
+      border:5px solid rgba(255,255,255,0.15);
+      border-top-color:#49ffd7;
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
+
+    @keyframes spin{ to{transform:rotate(360deg);} }
+
+    .chart-title{
+      position:absolute;
+      top:10px;
+      width:100%;
+      text-align:center;
+      font-size:18px;
+      font-weight:700;
+      color:#bdefff;
+      opacity:0.9;
+      pointer-events:none;
+    }
+
+.finding_output {
+  display: block;            /* keep block */
+  opacity: 0;
+  transform: translateY(20px);
+  max-height: 0;
+  overflow: hidden;
+  transition: 
+    opacity 0.4s ease,
+    transform 0.4s ease,
+    max-height 0.5s ease;
+}
+
+.finding_output.show {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 1000px; /* large enough for content */
+}
+
+    
+
+
+
+    
+.dashboard-container {
+  max-width:1200px;
+  margin:0 auto;
+}
+
+.findings-section {
+  width: 100%;
+  background:linear-gradient(180deg,#0f1217,#0b0d10);
+  border-radius:5px;
+  padding:24px;
+  border: 1px solid rgb(87, 87, 87);
+}
+
+/* ROW = LEFT + RIGHT */
+.finding-row {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:32px;
+  padding:18px 0;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+
+.finding {
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+}
+
+.grade {
+  width:44px;
+  height:44px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:16px;
+  color:#fff;
+  flex-shrink:0;
+}
+
+.grade-a { background:#10b981; }
+.grade-b { background:#6b7280; }
+.grade-c { background:#f59e0b; }
+.grade-d { background:#7f1d1d; }
+.grade-f { background:#374151; }
+
+.finding-title {
+  font-size:15px;
+  font-weight:600;
+}
+
+.finding-desc {
+  font-size:13px;
+  color:#9ca3af;
+  margin-top:4px;
+  line-height:1.4;
+}
+
+.scan-info {
+  margin-top:18px;
+  font-size:12px;
+  color:#9ca3af;
+}
+
+/* MOBILE */
+@media (max-width:768px) {
+  .finding-row {
+    grid-template-columns:1fr;
+    gap:18px;
+  }
+}
+
+
+/* ===============================
+   FULL WIDTH FINDINGS (FINAL)
+================================ */
+
+.finding_output.full-width {
+  grid-column: 1 / -1;   /* span entire grid */
+  width: 100%;
+}
+
+.finding_output .dashboard-container {
+  max-width: 100%;
+  margin: 0;
+  /* padding: 0 30px;  */
+}
+
+.findings-section {
+  width: 100%;
+}
+
+#scanInfo{
+  text-align: center;
+}
+
+  </style>
+</head>
+
+<body>
+
+<!-- EMAIL SCREEN FIRST -->
+
+
+<div id="emailScreen">
+  <h2>Enter Your Email</h2>
+<div class="input-container">
+  <input type="email" id="emailInput" placeholder="Enter your email" onkeydown="handleEnter(event)">
+  <span class="arrow-btn" onclick="submitEmail()">➜</span>
+</div>
+
+<button id="mobileButton" onclick="submitEmail()">Continue</button>
+
+
+  <p id="emailError" style="color:#f55; margin-top:10px; display:none;">Enter a valid email</p>
+</div>
+
+<!-- DASHBOARD (HIDDEN INITIALLY) Changing -->
+
+
+
+<div class="page" id="dashboard" style="display:none;"> 
+<div class="wrap">
+
+  <section class="panel chat">
+    <div class="chat-inner">
+      <h2 class="chat-title">HOW CAN I HELP</h2>
+
+      <div class="thread" id="thread">
+      </div>
+
+      <div class="input-bar">
+        
+        <input id="chatInput" type="text" placeholder="chat with me....."/>
+        <button class="send" id="sendBtn">&gt;</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel output">
+    <div class="out-inner">
+      <div class="load-title"></div>
+
+      <div class="chart-card">
+        <div class="chart-title">Analyzing your domain</div>
+        <div id="loader" class="loader"></div>
+        <canvas id="radar" width="560" height="360"></canvas>
+      </div>
+
+    </div>
+  </section>
+
+<section id="finidings_out" class="finding_output full-width">
+  <div class="dashboard-container">
+    <div class="findings-section">
+      <div id="findingsRows"></div>
+      <div id="scanInfo" class="scan-info"></div>
+    </div>
+  </div>
+</section>
+
+
+
+
+  
+
+</div>
+</div>
+
+
+<script>
+/* ============================
+   UTILITIES
+============================ */
+function scoreToGrade(score) {
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  if (score >= 60) return "D";
+  return "E";
+}
+
+function gradeToScore(grade) {
+  return { A: 90, B: 80, C: 70, D: 60, E: 50 }[grade] ?? 0;
+}
+
+/* ============================
+   FINDINGS VISIBILITY
+============================ */
+const findingsSection = document.getElementById("finidings_out");
+
+/* ============================
+   API CALL
+============================ */
+async function postEmail(url, email) {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await response.json();
+    } else {
+      const text = await response.text();
+      return { success: response.ok, message: text };
+    }
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
+
+/* ============================
+   EMAIL SUBMIT
+============================ */
+async function submitEmail() {
+  const email = document.getElementById("emailInput").value.trim();
+  const error = document.getElementById("emailError");
+
+  if (!email || !email.includes("@")) {
+    error.style.display = "block";
+    return;
+  }
+
+  error.style.display = "none";
+
+  const res = await postEmail(
+    "https://telivy.net",
+    email
+  );
+
+  // await 
+
+
+
+  const sessionId=res. session_id;
+  console.log(sessionId);
+
+  async function getSessionById(sessionId) {
+  try {
+    const res = await fetch(
+      `https://telivy-backend.azurewebsites.net/api/db/session/${sessionId}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    const data = await res.json();
+    return data;
+
+  } catch (err) {
+    console.error("Session fetch failed:", err);
+    return null;
+  }
+}
+
+const result_data=await getSessionById(sessionId);
+
+console.log(result_data)
+
+  const apiResult = result_data?.result ?? {
+    socialEngineering: "N/A",
+    networkSecurity: "N/A",
+    applicationSecurity: "N/A",
+    dnsHealth: "N/A",
+    ipReputation: "N/A",
+    externalVulnerabilities: "N/A"
+  };
+
+  /* UI TRANSITION */
+  const screen = document.getElementById("emailScreen");
+  const dashboard = document.getElementById("dashboard");
+
+  screen.classList.add("fadeOut");
+
+  setTimeout(() => {
+    screen.style.display = "none";
+    dashboard.style.display = "block";
+    setTimeout(() => dashboard.classList.add("show"), 10);
+  }, 600);
+
+  /* SHOW FINDINGS */
+  findingsSection.classList.add("show");
+
+  /* RENDER FINDINGS */
+  renderFindings(apiResult);
+
+  /* UPDATE RADAR FROM API */
+  scores = order.map(key => gradeToScore(apiResult[key]));
+  drawRadar();
+
+  /* STOP RANDOM DATA */
+  clearInterval(window.radarInterval);
+}
+
+/* ENTER KEY */
+function handleEnter(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    submitEmail();
+  }
+}
+
+/* ============================
+   CHAT SYSTEM
+============================ */
+const thread = document.getElementById("thread");
+const input = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
+
+function addMsg(text, from = "user") {
+  const row = document.createElement("div");
+  row.className = "msg";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = from === "user" ? "YOU" : "IS";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+
+  if (from === "user") {
+    row.style.justifyContent = "flex-end";
+    row.append(bubble, avatar);
+  } else {
+    row.append(avatar, bubble);
+  }
+
+  thread.appendChild(row);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function sendToAPI(text) {
+  try {
+    const res = await fetch(
+      "https://telivy-backend.azurewebsites.net/api/chat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      }
+    );
+    const data = await res.json();
+    addMsg(data.reply || "No response", "bot");
+  } catch {
+    addMsg("⚠ Server not reachable.", "bot");
+  }
+}
+
+function sendMessage() {
+  const text = input.value.trim();
+  if (!text) return;
+  addMsg(text, "user");
+  input.value = "";
+  sendToAPI(text);
+}
+
+sendBtn.addEventListener("click", sendMessage);
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+/* ============================
+   RADAR SYSTEM
+============================ */
+const loader = document.getElementById("loader");
+const canvas = document.getElementById("radar");
+const ctx = canvas.getContext("2d");
+
+const labels = [
+  "Social Engineering",
+  "Network Security",
+  "Application Security",
+  "DNS Health",
+  "IP Reputation",
+  "External Vulnerabilities"
+];
+
+const order = [
+  "socialEngineering",
+  "networkSecurity",
+  "applicationSecurity",
+  "dnsHealth",
+  "ipReputation",
+  "externalVulnerabilities"
+];
+
+let scores = [78, 90, 70, 50, 40, 70];
+
+const cfg = {
+  cx: canvas.width / 2,
+  cy: canvas.height / 2 + 8,
+  radius: 130,
+  rings: 5,
+  grid: "rgba(255,255,255,0.12)",
+  axis: "rgba(255,255,255,0.18)",
+  fill: "rgba(34,230,200,0.18)",
+  stroke: "#22e6c8",
+  point: "#49ffd7",
+  label: "#9fb0cc",
+  font: "12px system-ui"
+};
+
+function polar(angle, r) {
+  return [cfg.cx + r * Math.cos(angle), cfg.cy + r * Math.sin(angle)];
+}
+
+function drawRadar() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const n = labels.length;
+  const step = (Math.PI * 2) / n;
+  const start = -Math.PI / 2;
+
+  for (let k = 1; k <= cfg.rings; k++) {
+    const r = cfg.radius * (k / cfg.rings);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const [x, y] = polar(start + i * step, r);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = cfg.grid;
+    ctx.stroke();
+  }
+
+  labels.forEach((label, i) => {
+    const [x, y] = polar(start + i * step, cfg.radius + 18);
+    ctx.fillStyle = cfg.label;
+    ctx.fillText(label, x, y);
+  });
+
+  ctx.beginPath();
+  scores.forEach((v, i) => {
+    const [x, y] = polar(start + i * step, cfg.radius * (v / 100));
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = cfg.fill;
+  ctx.strokeStyle = cfg.stroke;
+  ctx.fill();
+  ctx.stroke();
+}
+
+/* ============================
+   FINDINGS RENDER
+============================ */
+const descriptions = {
+  socialEngineering: "Emails of employees exposed on the internet.",
+  networkSecurity: "Insecure network configurations and settings",
+  applicationSecurity: "Common website and application vulnerabilities.",
+  dnsHealth: "The health of your domain name server.",
+  ipReputation: "Suspicious activity from your IPs",
+  externalVulnerabilities: "Risks detected on external assets."
+};
+
+function renderFindings(result) {
+  const container = document.getElementById("findingsRows");
+  let html = "";
+
+  for (let i = 0; i < order.length; i += 2) {
+    html += `<div class="finding-row">`;
+
+    [order[i], order[i + 1]].forEach(key => {
+      if (!key) return;
+      const grade = result[key] || "N/A";
+      const title = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+
+      html += `
+        <div class="finding">
+          <div class="grade grade-${grade.toLowerCase()}">${grade}</div>
+          <div>
+            <div class="finding-title">${title}</div>
+            <div class="finding-desc">${descriptions[key]}</div>
+          </div>
+        </div>`;
+    });
+
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
